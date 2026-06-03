@@ -1,0 +1,129 @@
+import axios from 'axios'
+import { useAuthStore } from '@/lib/auth-store'
+import type {
+  Expense,
+  SpendingSummary,
+  MonthlyTrend,
+  BudgetRecommendation,
+} from '@/types'
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+
+export const api = axios.create({
+  baseURL: `${API_URL}/api`,
+  headers: { 'Content-Type': 'application/json' },
+})
+
+// Attach the bearer token from the auth store to every request.
+api.interceptors.request.use((config) => {
+  const token = useAuthStore.getState().token
+  if (token) {
+    config.headers = config.headers ?? {}
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// Log the user out on a 401 so the auth guard can redirect to /login.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
+      useAuthStore.getState().logout()
+    }
+    return Promise.reject(error)
+  }
+)
+
+export interface ExpenseFilters {
+  skip?: number
+  limit?: number
+  start_date?: string
+  end_date?: string
+  category?: string
+  merchant?: string
+  min_amount?: number
+  max_amount?: number
+}
+
+export interface RegisterData {
+  email: string
+  username: string
+  password: string
+  full_name?: string
+}
+
+export const authApi = {
+  // The backend login endpoint expects OAuth2 form-encoded credentials.
+  login: async (username: string, password: string) => {
+    const form = new URLSearchParams()
+    form.append('username', username)
+    form.append('password', password)
+    const { data } = await api.post('/auth/login', form, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+    return data as { access_token: string; token_type: string }
+  },
+  register: async (payload: RegisterData) => {
+    const { data } = await api.post('/auth/register', payload)
+    return data
+  },
+  me: async () => {
+    const { data } = await api.get('/auth/me')
+    return data
+  },
+}
+
+export const expensesApi = {
+  list: async (filters: ExpenseFilters = {}) => {
+    const { data } = await api.get('/expenses/', { params: filters })
+    return data as Expense[]
+  },
+  get: async (id: number) => {
+    const { data } = await api.get(`/expenses/${id}`)
+    return data as Expense
+  },
+  update: async (id: number, payload: Partial<Expense>) => {
+    const { data } = await api.patch(`/expenses/${id}`, payload)
+    return data as Expense
+  },
+  delete: async (id: number) => {
+    const { data } = await api.delete(`/expenses/${id}`)
+    return data
+  },
+  recategorize: async (id: number) => {
+    const { data } = await api.post(`/expenses/${id}/categorize`)
+    return data as Expense
+  },
+  categorizeBatch: async () => {
+    const { data } = await api.post('/expenses/categorize-batch')
+    return data
+  },
+}
+
+export const analyticsApi = {
+  getSummary: async () => {
+    const { data } = await api.get('/analytics/summary')
+    return data as SpendingSummary
+  },
+  getMonthlyTrends: async (months = 12) => {
+    const { data } = await api.get('/analytics/trends/monthly', {
+      params: { months },
+    })
+    return data as MonthlyTrend[]
+  },
+  getCategoryTrends: async (months = 6) => {
+    const { data } = await api.get('/analytics/trends/category', {
+      params: { months },
+    })
+    return data
+  },
+  getUnusualSpending: async () => {
+    const { data } = await api.get('/analytics/unusual')
+    return data
+  },
+  getBudgetRecommendations: async () => {
+    const { data } = await api.get('/analytics/budget/recommendations')
+    return data as BudgetRecommendation
+  },
+}

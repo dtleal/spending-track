@@ -111,21 +111,32 @@ git clone https://github.com/yourusername/spending-track.git
 cd spending-track
 ```
 
-2. Set up environment variables:
+2. Set up the backend environment variables:
 ```bash
-cp .env.example .env
-# Edit .env with your configuration
+cp backend/.env.example backend/.env
+# Edit backend/.env with your configuration
 ```
+   The backend will not start unless every required variable is present.
+   `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are required: keep the
+   placeholders if you don't need Google login, or set real credentials to
+   enable it. Set a real `OPENAI_API_KEY` to enable the AI features.
 
-3. Start the application with Docker:
+3. Build and start the application with Docker:
 ```bash
-docker-compose up -d
+make setup   # builds the images, starts the services and aligns migrations
+# or, equivalently:
+docker compose build && docker compose up -d
 ```
 
 4. Access the application:
 - Frontend: http://localhost:3000
 - Backend API: http://localhost:8000
 - API Documentation: http://localhost:8000/docs
+
+> **Database schema:** the backend creates all tables automatically on
+> startup (`Base.metadata.create_all`), so the app is usable immediately.
+> Alembic migration state is aligned with `alembic stamp head` (run by
+> `make setup`); use `make migrate` only after adding new migrations.
 
 ### Development Setup
 
