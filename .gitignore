@@ -188,6 +188,14 @@ uploads/
 invoices/
 temp/
 
+# Bank statements / personal financial documents — never commit
+*.pdf
+Fatura*/
+fatura*/
+*Fatura*.pdf
+*.ofx
+*.qif
+
 # Logs
 logs/
 *.log
