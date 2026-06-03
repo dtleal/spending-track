@@ -1,12 +1,9 @@
 'use client'
 
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { analyticsApi } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { 
+import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts'
@@ -14,46 +11,35 @@ import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Calendar } from 'lu
 import { format } from 'date-fns'
 import { usePrivacyStore } from '@/lib/privacy-store'
 import { formatCurrency } from '@/lib/utils'
+import { useResolvedFilters } from '@/lib/filter-store'
 
 export default function AnalyticsPage() {
-  const [timeRange, setTimeRange] = useState('30')
   const { isPrivacyMode } = usePrivacyStore()
+  const { startDate, endDate, cardholder, label } = useResolvedFilters()
 
   const { data: summary } = useQuery({
-    queryKey: ['analytics-summary', timeRange],
-    queryFn: () => {
-      if (timeRange === 'all') {
-        // Don't pass dates to get all data
-        return analyticsApi.getSummary()
-      }
-      const endDate = new Date()
-      const startDate = new Date()
-      startDate.setDate(startDate.getDate() - parseInt(timeRange))
-      return analyticsApi.getSummary(
-        startDate.toISOString().split('T')[0],
-        endDate.toISOString().split('T')[0]
-      )
-    },
+    queryKey: ['analytics-summary', startDate, endDate, cardholder],
+    queryFn: () => analyticsApi.getSummary(startDate, endDate, cardholder),
   })
 
   const { data: monthlyTrends } = useQuery({
-    queryKey: ['analytics-monthly'],
-    queryFn: () => analyticsApi.getMonthlyTrends(6),
+    queryKey: ['analytics-monthly', cardholder],
+    queryFn: () => analyticsApi.getMonthlyTrends(6, cardholder),
   })
 
   const { data: categoryTrends } = useQuery({
-    queryKey: ['analytics-category'],
-    queryFn: () => analyticsApi.getCategoryTrends(3),
+    queryKey: ['analytics-category', cardholder],
+    queryFn: () => analyticsApi.getCategoryTrends(3, cardholder),
   })
 
   const { data: unusualSpending } = useQuery({
-    queryKey: ['analytics-unusual'],
-    queryFn: () => analyticsApi.getUnusualSpending(),
+    queryKey: ['analytics-unusual', cardholder],
+    queryFn: () => analyticsApi.getUnusualSpending(cardholder),
   })
 
   const { data: budgetRecommendations } = useQuery({
-    queryKey: ['analytics-budget'],
-    queryFn: () => analyticsApi.getBudgetRecommendations(),
+    queryKey: ['analytics-budget', cardholder],
+    queryFn: () => analyticsApi.getBudgetRecommendations(cardholder),
   })
 
   const COLORS = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FECA57', '#DDA0DD', '#98D8C8', '#F7DC6F']
@@ -70,21 +56,11 @@ export default function AnalyticsPage() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold">Analytics</h1>
-          <p className="text-gray-600 dark:text-gray-400">Insights and trends from your spending data</p>
+          <p className="text-muted-foreground">
+            Insights and trends from your spending data · {label}
+            {cardholder ? ` · ${cardholder}` : ''}
+          </p>
         </div>
-        <Select value={timeRange} onValueChange={setTimeRange}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">Last 7 days</SelectItem>
-            <SelectItem value="30">Last 30 days</SelectItem>
-            <SelectItem value="90">Last 90 days</SelectItem>
-            <SelectItem value="180">Last 6 months</SelectItem>
-            <SelectItem value="365">Last year</SelectItem>
-            <SelectItem value="all">All time</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Summary Cards */}

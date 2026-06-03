@@ -42,6 +42,7 @@ export interface ExpenseFilters {
   end_date?: string
   category?: string
   merchant?: string
+  cardholder?: string
   min_amount?: number
   max_amount?: number
 }
@@ -99,36 +100,45 @@ export const expensesApi = {
     const { data } = await api.post('/expenses/categorize-batch')
     return data
   },
+  cardholders: async () => {
+    const { data } = await api.get('/expenses/cardholders')
+    return data as string[]
+  },
 }
 
 export const analyticsApi = {
   // start/end are ISO date strings (YYYY-MM-DD). Omit both for all-time data.
-  getSummary: async (startDate?: string, endDate?: string) => {
+  getSummary: async (startDate?: string, endDate?: string, cardholder?: string) => {
     const params: Record<string, string | boolean> = {}
     if (startDate) params.start_date = startDate
     if (endDate) params.end_date = endDate
     if (!startDate && !endDate) params.all_time = true
+    if (cardholder) params.cardholder = cardholder
     const { data } = await api.get('/analytics/summary', { params })
     return data as SpendingSummary
   },
-  getMonthlyTrends: async (months = 12) => {
+  getMonthlyTrends: async (months = 12, cardholder?: string) => {
     const { data } = await api.get('/analytics/trends/monthly', {
-      params: { months },
+      params: { months, ...(cardholder ? { cardholder } : {}) },
     })
     return data as MonthlyTrend[]
   },
-  getCategoryTrends: async (months = 6) => {
+  getCategoryTrends: async (months = 6, cardholder?: string) => {
     const { data } = await api.get('/analytics/trends/category', {
-      params: { months },
+      params: { months, ...(cardholder ? { cardholder } : {}) },
     })
     return data
   },
-  getUnusualSpending: async () => {
-    const { data } = await api.get('/analytics/unusual')
+  getUnusualSpending: async (cardholder?: string) => {
+    const { data } = await api.get('/analytics/unusual', {
+      params: { ...(cardholder ? { cardholder } : {}) },
+    })
     return data
   },
-  getBudgetRecommendations: async () => {
-    const { data } = await api.get('/analytics/budget/recommendations')
+  getBudgetRecommendations: async (cardholder?: string) => {
+    const { data } = await api.get('/analytics/budget/recommendations', {
+      params: { ...(cardholder ? { cardholder } : {}) },
+    })
     return data as BudgetRecommendation
   },
 }

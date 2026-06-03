@@ -1,43 +1,36 @@
 'use client'
 
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { analyticsApi, expensesApi } from '@/lib/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { formatCurrency } from '@/lib/utils'
 import { SpendingChart } from '@/components/charts/spending-chart'
 import { CategoryChart } from '@/components/charts/category-chart'
 import { RecentTransactions } from '@/components/recent-transactions'
 import { QuickStats } from '@/components/quick-stats'
+import { useResolvedFilters } from '@/lib/filter-store'
 
 export default function DashboardPage() {
-  const [timeRange, setTimeRange] = useState('30')
+  const { startDate, endDate, cardholder, label } = useResolvedFilters()
+
   const { data: summary, isLoading: summaryLoading } = useQuery({
-    queryKey: ['analytics', 'summary', timeRange],
-    queryFn: () => {
-      if (timeRange === 'all') {
-        // Don't pass dates to get all data
-        return analyticsApi.getSummary()
-      }
-      const endDate = new Date()
-      const startDate = new Date()
-      startDate.setDate(startDate.getDate() - parseInt(timeRange))
-      return analyticsApi.getSummary(
-        startDate.toISOString().split('T')[0],
-        endDate.toISOString().split('T')[0]
-      )
-    },
+    queryKey: ['analytics', 'summary', startDate, endDate, cardholder],
+    queryFn: () => analyticsApi.getSummary(startDate, endDate, cardholder),
   })
 
   const { data: monthlyTrends, isLoading: trendsLoading } = useQuery({
-    queryKey: ['analytics', 'monthly-trends'],
-    queryFn: () => analyticsApi.getMonthlyTrends(6),
+    queryKey: ['analytics', 'monthly-trends', cardholder],
+    queryFn: () => analyticsApi.getMonthlyTrends(6, cardholder),
   })
 
   const { data: recentExpenses, isLoading: expensesLoading } = useQuery({
-    queryKey: ['expenses', 'recent'],
-    queryFn: () => expensesApi.list({ limit: 10 }),
+    queryKey: ['expenses', 'recent', startDate, endDate, cardholder],
+    queryFn: () =>
+      expensesApi.list({
+        limit: 10,
+        start_date: startDate,
+        end_date: endDate,
+        cardholder,
+      }),
   })
 
   if (summaryLoading || trendsLoading || expensesLoading) {
@@ -53,30 +46,16 @@ export default function DashboardPage() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">
-            Welcome back! Here's your spending overview.
-          </p>
-        </div>
-        <Select value={timeRange} onValueChange={setTimeRange}>
-          <SelectTrigger className="w-48">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="7">Last 7 days</SelectItem>
-            <SelectItem value="30">Last 30 days</SelectItem>
-            <SelectItem value="90">Last 90 days</SelectItem>
-            <SelectItem value="180">Last 6 months</SelectItem>
-            <SelectItem value="365">Last year</SelectItem>
-            <SelectItem value="all">All time</SelectItem>
-          </SelectContent>
-        </Select>
+      <div>
+        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <p className="text-muted-foreground">
+          Welcome back! Here's your spending overview · {label}
+          {cardholder ? ` · ${cardholder}` : ''}
+        </p>
       </div>
 
       {/* Quick Stats */}
-      {summary && <QuickStats summary={summary} />}
+      {summary && <QuickStats summary={summary} periodLabel={label} />}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

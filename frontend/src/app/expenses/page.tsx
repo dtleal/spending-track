@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { expensesApi, analyticsApi } from '@/lib/api'
+import { expensesApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -13,47 +13,30 @@ import { format } from 'date-fns'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { usePrivacyStore } from '@/lib/privacy-store'
 import { formatCurrency } from '@/lib/utils'
+import { useResolvedFilters } from '@/lib/filter-store'
 
 export default function ExpensesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [selectedMonth, setSelectedMonth] = useState<string>('all')
   const { isPrivacyMode } = usePrivacyStore()
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
-  // Available months for the period filter (most recent first).
-  const { data: monthlyTrends } = useQuery({
-    queryKey: ['expense-months'],
-    queryFn: () => analyticsApi.getMonthlyTrends(12),
-  })
-  const monthOptions = [...(monthlyTrends || [])]
-    .map((t: any) => ({ value: t.month, label: t.month_name }))
-    .reverse()
-
-  const monthRange = (ym: string) => {
-    if (ym === 'all') return {}
-    const [y, m] = ym.split('-').map(Number)
-    return {
-      start_date: `${ym}-01`,
-      end_date: new Date(y, m, 0).toISOString().split('T')[0], // last day of month
-    }
-  }
+  // Date range + person come from the global filter bar.
+  const { startDate, endDate, cardholder, label } = useResolvedFilters()
+  const periodLabel = cardholder ? `${label} · ${cardholder}` : label
 
   const { data: expenses, isLoading } = useQuery({
-    queryKey: ['expenses', searchTerm, selectedCategory, selectedMonth],
+    queryKey: ['expenses', searchTerm, selectedCategory, startDate, endDate, cardholder],
     queryFn: () => expensesApi.list({
       merchant: searchTerm || undefined,
       category: selectedCategory === 'all' ? undefined : selectedCategory,
-      ...monthRange(selectedMonth),
+      start_date: startDate,
+      end_date: endDate,
+      cardholder,
       limit: 500,
     }),
   })
-
-  const periodLabel =
-    selectedMonth === 'all'
-      ? 'All time'
-      : monthOptions.find((o) => o.value === selectedMonth)?.label || selectedMonth
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => expensesApi.delete(id),
@@ -167,7 +150,7 @@ export default function ExpensesPage() {
   } : null
 
 
-  const isFiltered = searchTerm || selectedCategory !== 'all' || selectedMonth !== 'all'
+  const isFiltered = searchTerm || selectedCategory !== 'all'
 
   return (
     <div className="p-6">
@@ -220,7 +203,7 @@ export default function ExpensesPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
               <Input
@@ -238,19 +221,6 @@ export default function ExpensesPage() {
                 {categories.map((cat) => (
                   <SelectItem key={cat.value} value={cat.value}>
                     {cat.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select period" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All time</SelectItem>
-                {monthOptions.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>
-                    {m.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -315,7 +285,6 @@ export default function ExpensesPage() {
                 onClick={() => {
                   setSearchTerm('')
                   setSelectedCategory('all')
-                  setSelectedMonth('all')
                 }}
                 className="text-xs border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950"
               >

@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { useAuthStore } from '@/lib/auth-store'
 import { PrivacyToggle } from '@/components/privacy-toggle'
 import { ThemeToggle } from '@/components/theme-toggle'
+import { GlobalFilters } from '@/components/global-filters'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -124,6 +125,13 @@ export function DashboardNav() {
               <Menu className="h-6 w-6" />
             </Button>
           </div>
+        </div>
+      </div>
+
+      {/* Global filters sub-bar (applies to all pages) */}
+      <div className="border-t dark:border-gray-800 bg-muted/30">
+        <div className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-2 flex justify-end">
+          <GlobalFilters />
         </div>
       </div>
 

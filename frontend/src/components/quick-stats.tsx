@@ -8,9 +8,10 @@ import { TrendingUp, TrendingDown, DollarSign, CreditCard } from 'lucide-react'
 
 interface QuickStatsProps {
   summary: SpendingSummary
+  periodLabel?: string
 }
 
-export function QuickStats({ summary }: QuickStatsProps) {
+export function QuickStats({ summary, periodLabel = 'All time' }: QuickStatsProps) {
   const { isPrivacyMode } = usePrivacyStore()
   const totalSpent = summary.total_spent
   const dailyAverage = summary.daily_average
@@ -27,7 +28,7 @@ export function QuickStats({ summary }: QuickStatsProps) {
         <CardContent>
           <div className="text-2xl font-bold">{formatCurrency(totalSpent, isPrivacyMode)}</div>
           <p className="text-xs text-muted-foreground">
-            All time
+            {periodLabel}
           </p>
         </CardContent>
       </Card>

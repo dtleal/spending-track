@@ -229,11 +229,17 @@ def _clamp_day(day: int, ref_year: int, ref_month: int) -> int:
     """Clamp a day into the valid range of the reference month.
 
     The purchase day-of-month is preserved so transactions spread realistically
-    across their statement month (the all-time analytics window spans up to the
-    latest expense, so days later in the current month are not dropped).
+    across their statement month. For the current (incomplete) month nothing may
+    fall in the future, so days past today are folded back across the elapsed
+    days of the month — this avoids future dates without piling everything on a
+    single day.
     """
     last = monthrange(ref_year, ref_month)[1]
-    return min(max(day, 1), last)
+    day = min(max(day, 1), last)
+    today = datetime.now()
+    if (ref_year, ref_month) == (today.year, today.month) and day > today.day:
+        day = ((day - 1) % today.day) + 1
+    return day
 
 
 def _expense_date(dd_mm: str, ref_year: int, ref_month: int) -> datetime:
