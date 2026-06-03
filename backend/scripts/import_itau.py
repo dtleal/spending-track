@@ -249,9 +249,19 @@ def parse_invoice(path: str):
         m = re.search(re.escape(label) + r"\s*\n\s*-?\s*([\d\.]+,\d{2})", full)
         return _money(m.group(1)) if m else 0.0
 
+    def _charge(label):
+        # Encargo line layout: "<label>\n<rate> %...\n<value>". Take the value.
+        m = re.search(re.escape(label) + r"\s*\n\s*[\d.,]+\s*%[^\n]*\n\s*([\d\.]+,\d{2})", full)
+        return _money(m.group(1)) if m else 0.0
+
+    iof_m = re.search(r"IOF de financiamento\s*\n\s*\([^)]*\)\s*\n\s*([\d\.]+,\d{2})", full)
     fees = {
-        "encargos": _grab("Total de encargos em R$"),  # juros rotativo + mora + multa
+        "juros_rotativo": _charge("Juros do rotativo"),
+        "juros_mora": _charge("Juros de mora"),
+        "multa_atraso": _charge("Multa por atraso"),
+        "iof_financiamento": _money(iof_m.group(1)) if iof_m else 0.0,
         "produtos_servicos": _grab("Lançamentos produtos e serviços"),  # anuidade + tarifas + atraso
+        "encargos_total": _grab("Total de encargos em R$"),  # for validation
     }
     return txns, total, ref_year, ref_month, fees
 
@@ -312,11 +322,22 @@ def import_dir(directory: str, username: str, reset: bool) -> int:
             txns, total, ref_year, ref_month, fees = parse_invoice(path)
             domestic = round(sum(t["amount"] for t in txns), 2)
             reconciliation = round((total or domestic) - domestic, 2)
-            # Split the reconciliation into itemised card fees + remainder
-            # (international purchases). Fees come straight from the statement.
-            fee_charges = round(fees.get("encargos", 0.0), 2)        # juros + multa
-            fee_services = round(fees.get("produtos_servicos", 0.0), 2)  # anuidade/tarifas
-            international = round(reconciliation - fee_charges - fee_services, 2)
+            # Split the reconciliation into itemised card fees (straight from the
+            # statement) + remainder (international purchases).
+            fee_lines = [
+                ("Juros do rotativo (Itaú)", fees.get("juros_rotativo", 0.0),
+                 "Juros do crédito rotativo"),
+                ("Juros de mora (Itaú)", fees.get("juros_mora", 0.0),
+                 "Juros de mora por atraso de pagamento"),
+                ("Multa por atraso (Itaú)", fees.get("multa_atraso", 0.0),
+                 "Multa de 2% sobre o saldo por atraso de pagamento"),
+                ("IOF de financiamento (Itaú)", fees.get("iof_financiamento", 0.0),
+                 "IOF sobre financiamento/parcelamento"),
+                ("Anuidade e tarifas do cartão (Itaú)", fees.get("produtos_servicos", 0.0),
+                 "Anuidade + tarifas + encargos de atraso (produtos e serviços)"),
+            ]
+            fees_total = round(sum(v for _, v, _ in fee_lines), 2)
+            international = round(reconciliation - fees_total, 2)
 
             invoice = Invoice(
                 user_id=user.id,
@@ -376,14 +397,8 @@ def import_dir(directory: str, username: str, reset: bool) -> int:
                     expense_metadata={"kind": kind},
                 ))
 
-            _add_charge(
-                "Juros e multa por atraso (Itaú)", fee_charges, ExpenseCategory.FEES,
-                "Encargos: juros do rotativo + juros de mora + multa por atraso", "fee",
-            )
-            _add_charge(
-                "Anuidade e tarifas do cartão (Itaú)", fee_services, ExpenseCategory.FEES,
-                "Produtos e serviços: anuidade + tarifas + encargos de atraso", "fee",
-            )
+            for merchant, amount, desc in fee_lines:
+                _add_charge(merchant, amount, ExpenseCategory.FEES, desc, "fee")
             _add_charge(
                 "Lançamentos internacionais (Itaú)", international, ExpenseCategory.OTHER,
                 "Compras internacionais + IOF (não itemizadas)", "international",

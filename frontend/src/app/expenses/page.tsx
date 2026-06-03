@@ -34,9 +34,21 @@ export default function ExpensesPage() {
       start_date: startDate,
       end_date: endDate,
       cardholder,
-      limit: 500,
+      limit: 2000,
     }),
   })
+
+  // Total per category for the currently loaded (filtered) expenses.
+  const categoryTotals = expenses
+    ? Object.entries(
+        (expenses as any[]).reduce((acc: Record<string, number>, e: any) => {
+          const c = e.category || 'other'
+          acc[c] = (acc[c] || 0) + e.amount
+          return acc
+        }, {})
+      ).sort(([, a], [, b]) => (b as number) - (a as number))
+    : []
+  const categoryGrandTotal = categoryTotals.reduce((s, [, v]) => s + (v as number), 0)
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => expensesApi.delete(id),
@@ -296,6 +308,50 @@ export default function ExpensesPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Category breakdown (shown when not filtering to a single category) */}
+      {!isLoading && selectedCategory === 'all' && categoryTotals.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center justify-between">
+              <span>Total by Category</span>
+              <span className="text-base font-bold text-green-600">
+                {formatCurrency(categoryGrandTotal, isPrivacyMode)}
+              </span>
+            </CardTitle>
+            <CardDescription>{periodLabel}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {categoryTotals.map(([cat, amount]) => {
+                const pct = categoryGrandTotal > 0 ? ((amount as number) / categoryGrandTotal) * 100 : 0
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    className="w-full text-left"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${getCategoryColor(cat)}`}>
+                        {getCategoryLabel(cat)}
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground">{pct.toFixed(1)}%</span>
+                        <span className="font-semibold tabular-nums">
+                          {formatCurrency(amount as number, isPrivacyMode)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-1.5">
+                      <div className="h-1.5 rounded-full bg-primary" style={{ width: `${pct}%` }} />
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Filter Results Summary */}
       {!isLoading && filteredStats && isFiltered && (
