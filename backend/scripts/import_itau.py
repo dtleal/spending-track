@@ -130,6 +130,7 @@ def _classify_merchant(merchant: str) -> ExpenseCategory | None:
 # Merchants whose category is always overridden regardless of Itaú's label.
 _FORCE_MERCHANT = [
     (ExpenseCategory.HEALTH, ("TOTALPASS", "TOTAL PASS", "GYMPASS")),  # gym
+    (ExpenseCategory.UTILITIES, ("APPLE.COM/BILL", "APPLE.COM BILL", "APPLECOMBILL")),
 ]
 
 
