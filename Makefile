@@ -1,4 +1,4 @@
- .PHONY: help build start stop restart logs clean test lint format migrate makemigrations install dev setup
+ .PHONY: help build start stop restart logs clean test lint format migrate makemigrations install dev setup import-itau
 
 # Default target
 help:
@@ -165,6 +165,15 @@ try: \
 except Exception as e: \
     print(f'❌ Error parsing invoice: {e}'); \
 "
+
+# Import Itaú PDF statements into the database.
+# Usage: make import-itau                      (defaults: DIR=/app/invoices/itau ACCT=diego)
+#        make import-itau DIR=/app/invoices/itau ACCT=diego RESET=1
+# Note: ACCT (not USER) is used because USER is a shell environment variable.
+import-itau:
+	@echo "Importing Itaú statements from $(or $(DIR),/app/invoices/itau) for user $(or $(ACCT),diego)..."
+	docker compose exec backend python scripts/import_itau.py \
+		$(or $(DIR),/app/invoices/itau) --user $(or $(ACCT),diego) $(if $(RESET),--reset,)
 
 # Health checks
 health:

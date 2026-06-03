@@ -25,6 +25,7 @@ RUN pip install --no-cache-dir \
     "bcrypt<4.1" \
     "python-multipart>=0.0.9" \
     "elasticsearch>=8.12.0" \
+    "pymupdf>=1.24.0" \
     "pandas>=2.1.0" \
     "numpy>=1.26.0" \
     "openai>=1.40.0" \
