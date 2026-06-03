@@ -83,9 +83,9 @@ _MERCHANT_RULES = [
     )),
     (ExpenseCategory.HEALTH, (
         "DROGA", "FARMA", "CLINICA", "HOSPITAL", "ODONTO", "PSICO", "LABORAT",
-        "PILATES", "ACADEMIA", "SMARTFIT", "SMART FIT", "BIORITMO", "SUPPLEMENT",
-        "SUPLEMENT", "GROWTH", "BARBEAR", "CAMERINO", "SALAO", "SALÃO", "ESTETICA",
-        "DERMA", "VACINA", "AZOS",
+        "PILATES", "ACADEMIA", "SMARTFIT", "SMART FIT", "BIORITMO", "TOTALPASS",
+        "TOTAL PASS", "GYMPASS", "SUPPLEMENT", "SUPLEMENT", "GROWTH", "BARBEAR",
+        "CAMERINO", "SALAO", "SALÃO", "ESTETICA", "DERMA", "VACINA", "AZOS",
     )),
     (ExpenseCategory.TRANSPORT, (
         "AZUL", "LATAM", "GOL ", "DECOLAR", "UBER", "99POP", "99 *", "99POP", "CABIFY",
@@ -127,8 +127,26 @@ def _classify_merchant(merchant: str) -> ExpenseCategory | None:
     return None
 
 
+# Merchants whose category is always overridden regardless of Itaú's label.
+_FORCE_MERCHANT = [
+    (ExpenseCategory.HEALTH, ("TOTALPASS", "TOTAL PASS", "GYMPASS")),  # gym
+]
+
+
+def _forced_category(merchant: str) -> ExpenseCategory | None:
+    m = (merchant or "").upper()
+    for category, keywords in _FORCE_MERCHANT:
+        if any(kw in m for kw in keywords):
+            return category
+    return None
+
+
 def _resolve_category(raw_cat: str, merchant: str) -> ExpenseCategory:
-    """Use Itaú's category when meaningful; otherwise fall back to the merchant name."""
+    """Resolve a category: forced merchant overrides win, then Itaú's label,
+    then a merchant-name fallback for Itaú's uncategorised ('DIVERSOS') entries."""
+    forced = _forced_category(merchant)
+    if forced is not None:
+        return forced
     cat = _map_category(raw_cat)
     if cat == ExpenseCategory.OTHER:
         guessed = _classify_merchant(merchant)
@@ -222,7 +240,20 @@ def parse_invoice(path: str):
         ref_year, ref_month = int(m_venc.group(3)), int(m_venc.group(2))
     else:
         ref_year, ref_month = datetime.now().year, datetime.now().month
-    return txns, total, ref_year, ref_month
+
+    # Card fees from the statement subtotals: interest/penalty (encargos) and
+    # annuity/service charges (produtos e serviços).
+    full = "\n".join(doc[p].get_text() for p in range(doc.page_count))
+
+    def _grab(label):
+        m = re.search(re.escape(label) + r"\s*\n\s*-?\s*([\d\.]+,\d{2})", full)
+        return _money(m.group(1)) if m else 0.0
+
+    fees = {
+        "encargos": _grab("Total de encargos em R$"),  # juros rotativo + mora + multa
+        "produtos_servicos": _grab("Lançamentos produtos e serviços"),  # anuidade + tarifas + atraso
+    }
+    return txns, total, ref_year, ref_month, fees
 
 
 def _clamp_day(day: int, ref_year: int, ref_month: int) -> int:
@@ -278,9 +309,14 @@ def import_dir(directory: str, username: str, reset: bool) -> int:
 
         grand_total = 0.0
         for path in pdfs:
-            txns, total, ref_year, ref_month = parse_invoice(path)
+            txns, total, ref_year, ref_month, fees = parse_invoice(path)
             domestic = round(sum(t["amount"] for t in txns), 2)
             reconciliation = round((total or domestic) - domestic, 2)
+            # Split the reconciliation into itemised card fees + remainder
+            # (international purchases). Fees come straight from the statement.
+            fee_charges = round(fees.get("encargos", 0.0), 2)        # juros + multa
+            fee_services = round(fees.get("produtos_servicos", 0.0), 2)  # anuidade/tarifas
+            international = round(reconciliation - fee_charges - fee_services, 2)
 
             invoice = Invoice(
                 user_id=user.id,
@@ -320,21 +356,38 @@ def import_dir(directory: str, username: str, reset: bool) -> int:
                     },
                 ))
 
-            if abs(reconciliation) >= 0.01:
-                last = monthrange(ref_year, ref_month)[1]
+            last_day = _clamp_day(monthrange(ref_year, ref_month)[1], ref_year, ref_month)
+            charge_date = datetime(ref_year, ref_month, last_day, 12, 0)
+
+            def _add_charge(merchant, amount, category, desc, kind):
+                if abs(round(amount, 2)) < 0.01:
+                    return
                 db.add(Expense(
                     user_id=user.id,
                     invoice_id=invoice.id,
-                    cardholder="Diego",  # account holder (titular) bears fees/charges
-                    date=datetime(ref_year, ref_month, _clamp_day(last, ref_year, ref_month), 12, 0),
-                    merchant="Encargos, anuidade e lançamentos internacionais (Itaú)",
-                    amount=reconciliation,
-                    category=ExpenseCategory.OTHER,
-                    ai_category=ExpenseCategory.OTHER,
-                    description="Reconciliação: internacional + produtos/serviços + encargos da fatura",
-                    tags=["itau", "reconciliacao", f"{ref_year}-{ref_month:02d}"],
-                    expense_metadata={"kind": "reconciliation"},
+                    cardholder="Diego",  # account titular bears fees / int'l on titular card
+                    date=charge_date,
+                    merchant=merchant,
+                    amount=round(amount, 2),
+                    category=category,
+                    ai_category=category,
+                    description=desc,
+                    tags=["itau", kind, f"{ref_year}-{ref_month:02d}"],
+                    expense_metadata={"kind": kind},
                 ))
+
+            _add_charge(
+                "Juros e multa por atraso (Itaú)", fee_charges, ExpenseCategory.FEES,
+                "Encargos: juros do rotativo + juros de mora + multa por atraso", "fee",
+            )
+            _add_charge(
+                "Anuidade e tarifas do cartão (Itaú)", fee_services, ExpenseCategory.FEES,
+                "Produtos e serviços: anuidade + tarifas + encargos de atraso", "fee",
+            )
+            _add_charge(
+                "Lançamentos internacionais (Itaú)", international, ExpenseCategory.OTHER,
+                "Compras internacionais + IOF (não itemizadas)", "international",
+            )
 
             db.commit()
             imported_total = domestic + (reconciliation if abs(reconciliation) >= 0.01 else 0)

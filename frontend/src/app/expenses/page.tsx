@@ -81,6 +81,7 @@ export default function ExpensesPage() {
     { value: 'entertainment', label: 'Entertainment' },
     { value: 'utilities', label: 'Utilities & Bills' },
     { value: 'education', label: 'Education' },
+    { value: 'fees', label: 'Card Fees' },
     { value: 'other', label: 'Other' },
   ]
 
@@ -93,6 +94,7 @@ export default function ExpensesPage() {
       entertainment: 'bg-purple-100 text-purple-900 dark:bg-purple-500/25 dark:text-purple-200',
       utilities: 'bg-slate-200 text-slate-900 dark:bg-slate-500/30 dark:text-slate-100',
       education: 'bg-green-100 text-green-900 dark:bg-green-500/25 dark:text-green-200',
+      fees: 'bg-rose-100 text-rose-900 dark:bg-rose-500/25 dark:text-rose-200',
       other: 'bg-amber-100 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200',
     }
     return colors[category] || colors.other

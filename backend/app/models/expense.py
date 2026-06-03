@@ -12,6 +12,7 @@ class ExpenseCategory(str, enum.Enum):
     ENTERTAINMENT = "entertainment"
     UTILITIES = "utilities"
     EDUCATION = "education"
+    FEES = "fees"
     OTHER = "other"
 
 
