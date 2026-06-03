@@ -20,12 +20,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   food: 'Food & Dining', transport: 'Transportation', shopping: 'Shopping',
   health: 'Health & Medical', entertainment: 'Entertainment',
   utilities: 'Utilities & Bills', education: 'Education', fees: 'Card Fees',
-  mercado_livre: 'Mercado Livre', amazon: 'Amazon', other: 'Other',
+  mercado_livre: 'Mercado Livre', amazon: 'Amazon', internacional: 'Internacional',
+  other: 'Other',
 }
 const CATEGORY_COLORS: Record<string, string> = {
   food: '#f97316', transport: '#3b82f6', shopping: '#ec4899', health: '#ef4444',
   entertainment: '#a855f7', utilities: '#64748b', education: '#22c55e',
-  fees: '#e11d48', mercado_livre: '#eab308', amazon: '#6366f1', other: '#f59e0b',
+  fees: '#e11d48', mercado_livre: '#eab308', amazon: '#6366f1',
+  internacional: '#06b6d4', other: '#f59e0b',
 }
 const monthKey = (iso: string) => iso.slice(0, 7)
 

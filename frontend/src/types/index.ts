@@ -9,6 +9,7 @@ export enum ExpenseCategory {
   FEES = 'fees',
   MERCADO_LIVRE = 'mercado_livre',
   AMAZON = 'amazon',
+  INTERNACIONAL = 'internacional',
   OTHER = 'other',
 }
 

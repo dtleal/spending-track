@@ -96,6 +96,7 @@ export default function ExpensesPage() {
     { value: 'fees', label: 'Card Fees' },
     { value: 'mercado_livre', label: 'Mercado Livre' },
     { value: 'amazon', label: 'Amazon' },
+    { value: 'internacional', label: 'Internacional' },
     { value: 'other', label: 'Other' },
   ]
 
@@ -111,6 +112,7 @@ export default function ExpensesPage() {
       fees: 'bg-rose-100 text-rose-900 dark:bg-rose-500/25 dark:text-rose-200',
       mercado_livre: 'bg-yellow-100 text-yellow-900 dark:bg-yellow-500/25 dark:text-yellow-100',
       amazon: 'bg-indigo-100 text-indigo-900 dark:bg-indigo-500/25 dark:text-indigo-200',
+      internacional: 'bg-cyan-100 text-cyan-900 dark:bg-cyan-500/25 dark:text-cyan-200',
       other: 'bg-amber-100 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200',
     }
     return colors[category] || colors.other

@@ -404,7 +404,7 @@ def import_dir(directory: str, username: str, reset: bool) -> int:
             for merchant, amount, desc in fee_lines:
                 _add_charge(merchant, amount, ExpenseCategory.FEES, desc, "fee")
             _add_charge(
-                "Lançamentos internacionais (Itaú)", international, ExpenseCategory.FEES,
+                "Lançamentos internacionais (Itaú)", international, ExpenseCategory.INTERNACIONAL,
                 "Compras internacionais + IOF (não itemizadas)", "international",
             )
 
