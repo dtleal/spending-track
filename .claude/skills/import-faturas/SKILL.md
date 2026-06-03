@@ -30,6 +30,13 @@ two-column layout into `date · merchant · amount · category`. It then:
 International transactions, annuity and finance charges are **not** itemised
 line-by-line — they are summed into the reconciliation line.
 
+Each expense is attributed to a **cardholder** (person) by tracking the per-card
+section headers ("NOME (final XXXX)") in reading order. The mapping of names to
+people lives in `_cardholder_from_line` in the importer (currently Diego /
+Beatriz); adjust it for other statements. The reconciliation line is attributed
+to the account titular. The `cardholder` is stored on each expense and powers
+the global "person" filter in the UI.
+
 ## Steps
 
 1. Make sure the services are up: `docker compose ps` (backend must be running).

@@ -34,6 +34,7 @@ class ExpenseResponse(ExpenseBase):
     id: int
     user_id: int
     invoice_id: Optional[int]
+    cardholder: Optional[str] = None
     ai_category: Optional[ExpenseCategory]
     created_at: datetime
     updated_at: Optional[datetime]
@@ -50,6 +51,7 @@ def list_expenses(
     end_date: Optional[date] = None,
     category: Optional[ExpenseCategory] = None,
     merchant: Optional[str] = None,
+    cardholder: Optional[str] = None,
     min_amount: Optional[float] = None,
     max_amount: Optional[float] = None,
     db: Session = Depends(get_db),
@@ -57,8 +59,10 @@ def list_expenses(
 ) -> Any:
     """List expenses with filters"""
     query = db.query(Expense).filter(Expense.user_id == current_user.id)
-    
+
     # Apply filters
+    if cardholder:
+        query = query.filter(Expense.cardholder == cardholder)
     if start_date:
         query = query.filter(Expense.date >= start_date)
     if end_date:
@@ -75,6 +79,21 @@ def list_expenses(
     
     expenses = query.order_by(Expense.date.desc()).offset(skip).limit(limit).all()
     return expenses
+
+
+@router.get("/cardholders", response_model=List[str])
+def list_cardholders(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+) -> Any:
+    """Distinct cardholders (people) for the current user."""
+    rows = (
+        db.query(Expense.cardholder)
+        .filter(Expense.user_id == current_user.id, Expense.cardholder.isnot(None))
+        .distinct()
+        .all()
+    )
+    return sorted(r[0] for r in rows if r[0])
 
 
 @router.post("/", response_model=ExpenseResponse)

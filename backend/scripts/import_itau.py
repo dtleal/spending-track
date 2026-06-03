@@ -21,6 +21,7 @@ import sys
 from calendar import monthrange
 from collections import defaultdict
 from datetime import datetime
+from typing import Optional
 
 import fitz  # pymupdf
 
@@ -136,13 +137,28 @@ def _resolve_category(raw_cat: str, merchant: str) -> ExpenseCategory:
     return cat
 
 
+def _cardholder_from_line(line: str) -> Optional[str]:
+    """Detect an Itaú per-card section header and map it to a person."""
+    up = line.upper()
+    if "BEATRIZ" in up:
+        return "Beatriz"
+    if "DIEGO LEAL" in up:
+        return "Diego"
+    return None
+
+
 def parse_invoice(path: str):
     """Return (transactions, invoice_total, reference_year, reference_month).
 
-    transactions: list of dicts {date(dd/mm), merchant, amount, raw_cat}
+    transactions: list of dicts {date(dd/mm), merchant, amount, raw_cat, cardholder}
+    Each transaction is attributed to a cardholder by tracking the per-card
+    section headers ("NOME (final XXXX)") in reading order (page → column → y).
     """
     doc = fitz.open(path)
-    txns = []
+
+    # Build the row stream in reading order: each page, left column then right
+    # column, top to bottom. Cardholder/section state carries across the stream.
+    ordered_rows = []
     for pi in range(doc.page_count):
         words = doc[pi].get_text("words")  # x0,y0,x1,y1,word,...
         for col_min, col_max in [(0, 360), (360, 600)]:
@@ -151,41 +167,52 @@ def parse_invoice(path: str):
                 if col_min <= w[0] < col_max:
                     rows[round(w[1])].append(w)
             ys = sorted(rows)
-            in_buy = False
             for k, y in enumerate(ys):
-                toks = [t[4] for t in sorted(rows[y], key=lambda t: t[0])]
-                line = " ".join(toks).lower()
-                if SECTION_START in line:
-                    in_buy = True
-                    continue
-                if any(s in line for s in SECTION_STOP):
-                    in_buy = False
-                    continue
-                if not in_buy:
-                    continue
-                dates = [t for t in toks if DATE.match(t)]
-                vals = [t for t in toks if VAL.match(t)]
-                if not dates or not vals:
-                    continue
-                date, val = dates[0], vals[-1]
-                di = toks.index(date)
-                vi = len(toks) - 1 - toks[::-1].index(val)
-                merchant = " ".join(toks[di + 1:vi]).strip()
-                amount = _money(val)
-                if "-" in toks[max(0, vi - 1):vi] or merchant.endswith("-"):
-                    amount = -amount  # estorno / crédito
-                    merchant = merchant.rstrip(" -")
-                raw_cat = ""
+                row = [t[4] for t in sorted(rows[y], key=lambda t: t[0])]
+                nxt = None
                 if k + 1 < len(ys) and 0 < ys[k + 1] - y < 13:
-                    ct = [t[4] for t in sorted(rows[ys[k + 1]], key=lambda t: t[0])]
-                    if not any(DATE.match(t) for t in ct) and not any(VAL.match(t) for t in ct):
-                        raw_cat = " ".join(ct)
-                txns.append({
-                    "date": date,
-                    "merchant": merchant or (raw_cat.split(".")[0].strip() or "—"),
-                    "amount": amount,
-                    "raw_cat": raw_cat,
-                })
+                    nxt = [t[4] for t in sorted(rows[ys[k + 1]], key=lambda t: t[0])]
+                ordered_rows.append((row, nxt))
+
+    txns = []
+    in_buy = False
+    holder = "Diego"  # titular until a card header switches it
+    for toks, nxt in ordered_rows:
+        line = " ".join(toks)
+        low = line.lower()
+        if SECTION_START in low:
+            in_buy = True
+            continue
+        if any(s in low for s in SECTION_STOP):
+            in_buy = False
+            continue
+        ch = _cardholder_from_line(line)
+        if ch:
+            holder = ch
+        if not in_buy:
+            continue
+        dates = [t for t in toks if DATE.match(t)]
+        vals = [t for t in toks if VAL.match(t)]
+        if not dates or not vals:
+            continue
+        date, val = dates[0], vals[-1]
+        di = toks.index(date)
+        vi = len(toks) - 1 - toks[::-1].index(val)
+        merchant = " ".join(toks[di + 1:vi]).strip()
+        amount = _money(val)
+        if "-" in toks[max(0, vi - 1):vi] or merchant.endswith("-"):
+            amount = -amount  # estorno / crédito
+            merchant = merchant.rstrip(" -")
+        raw_cat = ""
+        if nxt and not any(DATE.match(t) for t in nxt) and not any(VAL.match(t) for t in nxt):
+            raw_cat = " ".join(nxt)
+        txns.append({
+            "date": date,
+            "merchant": merchant or (raw_cat.split(".")[0].strip() or "—"),
+            "amount": amount,
+            "raw_cat": raw_cat,
+            "cardholder": holder,
+        })
 
     page0 = doc[0].get_text()
     m_total = re.search(r"Total desta fatura\s*\n\s*-?\s*([\d\.]+,\d{2})", page0)
@@ -272,6 +299,7 @@ def import_dir(directory: str, username: str, reset: bool) -> int:
                 db.add(Expense(
                     user_id=user.id,
                     invoice_id=invoice.id,
+                    cardholder=t.get("cardholder"),
                     date=_expense_date(t["date"], ref_year, ref_month),
                     merchant=t["merchant"][:255],
                     amount=t["amount"],
@@ -282,6 +310,7 @@ def import_dir(directory: str, username: str, reset: bool) -> int:
                     expense_metadata={
                         "purchase_date": t["date"],
                         "itau_category": t["raw_cat"],
+                        "cardholder": t.get("cardholder"),
                     },
                 ))
 
@@ -290,6 +319,7 @@ def import_dir(directory: str, username: str, reset: bool) -> int:
                 db.add(Expense(
                     user_id=user.id,
                     invoice_id=invoice.id,
+                    cardholder="Diego",  # account holder (titular) bears fees/charges
                     date=datetime(ref_year, ref_month, _clamp_day(last, ref_year, ref_month), 12, 0),
                     merchant="Encargos, anuidade e lançamentos internacionais (Itaú)",
                     amount=reconciliation,

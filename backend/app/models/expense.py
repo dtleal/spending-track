@@ -20,6 +20,7 @@ class Expense(BaseModel):
     
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     invoice_id = Column(Integer, ForeignKey("invoices.id"))
+    cardholder = Column(String, index=True)  # who spent (card owner name)
     date = Column(DateTime(timezone=True), nullable=False)
     merchant = Column(String, nullable=False)
     amount = Column(Float, nullable=False)

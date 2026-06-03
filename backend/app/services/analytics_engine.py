@@ -12,13 +12,16 @@ class AnalyticsEngine:
     def __init__(self, db: Session):
         self.db = db
     
-    def get_spending_summary(self, user_id: int, start_date: datetime, end_date: datetime) -> Dict[str, Any]:
+    def get_spending_summary(self, user_id: int, start_date: datetime, end_date: datetime, cardholder: Optional[str] = None) -> Dict[str, Any]:
         """Get spending summary for a user within date range"""
-        expenses = self.db.query(Expense).filter(
+        query = self.db.query(Expense).filter(
             Expense.user_id == user_id,
             Expense.date >= start_date,
             Expense.date <= end_date
-        ).all()
+        )
+        if cardholder:
+            query = query.filter(Expense.cardholder == cardholder)
+        expenses = query.all()
         
         total_spent = sum(e.amount for e in expenses)
         
@@ -57,12 +60,12 @@ class AnalyticsEngine:
             }
         }
     
-    def get_monthly_trends(self, user_id: int, months: int = 12) -> List[Dict[str, Any]]:
+    def get_monthly_trends(self, user_id: int, months: int = 12, cardholder: Optional[str] = None) -> List[Dict[str, Any]]:
         """Get monthly spending trends"""
         end_date = datetime.now()
         start_date = end_date - timedelta(days=months * 30)
-        
-        monthly_data = self.db.query(
+
+        query = self.db.query(
             extract('year', Expense.date).label('year'),
             extract('month', Expense.date).label('month'),
             func.sum(Expense.amount).label('total'),
@@ -70,7 +73,10 @@ class AnalyticsEngine:
         ).filter(
             Expense.user_id == user_id,
             Expense.date >= start_date
-        ).group_by('year', 'month').all()
+        )
+        if cardholder:
+            query = query.filter(Expense.cardholder == cardholder)
+        monthly_data = query.group_by('year', 'month').all()
         
         trends = []
         for row in monthly_data:
@@ -84,15 +90,18 @@ class AnalyticsEngine:
         
         return sorted(trends, key=lambda x: x['month'])
     
-    def get_category_trends(self, user_id: int, months: int = 6) -> Dict[str, List[Dict[str, Any]]]:
+    def get_category_trends(self, user_id: int, months: int = 6, cardholder: Optional[str] = None) -> Dict[str, List[Dict[str, Any]]]:
         """Get spending trends by category over time"""
         end_date = datetime.now()
         start_date = end_date - timedelta(days=months * 30)
-        
-        expenses = self.db.query(Expense).filter(
+
+        query = self.db.query(Expense).filter(
             Expense.user_id == user_id,
             Expense.date >= start_date
-        ).all()
+        )
+        if cardholder:
+            query = query.filter(Expense.cardholder == cardholder)
+        expenses = query.all()
         
         # Group by month and category
         category_monthly = defaultdict(lambda: defaultdict(float))
@@ -116,16 +125,19 @@ class AnalyticsEngine:
         
         return trends
     
-    def detect_unusual_spending(self, user_id: int) -> List[Dict[str, Any]]:
+    def detect_unusual_spending(self, user_id: int, cardholder: Optional[str] = None) -> List[Dict[str, Any]]:
         """Detect unusual spending patterns"""
         # Get last 3 months of data
         end_date = datetime.now()
         start_date = end_date - timedelta(days=90)
-        
-        expenses = self.db.query(Expense).filter(
+
+        query = self.db.query(Expense).filter(
             Expense.user_id == user_id,
             Expense.date >= start_date
-        ).all()
+        )
+        if cardholder:
+            query = query.filter(Expense.cardholder == cardholder)
+        expenses = query.all()
         
         if len(expenses) < 10:
             return []
@@ -154,13 +166,14 @@ class AnalyticsEngine:
         
         return sorted(unusual, key=lambda x: x['amount'], reverse=True)[:10]
     
-    def get_budget_recommendations(self, user_id: int) -> Dict[str, Any]:
+    def get_budget_recommendations(self, user_id: int, cardholder: Optional[str] = None) -> Dict[str, Any]:
         """Generate budget recommendations based on spending history"""
         # Get last 3 months of data
         summary = self.get_spending_summary(
-            user_id, 
+            user_id,
             datetime.now() - timedelta(days=90),
-            datetime.now()
+            datetime.now(),
+            cardholder=cardholder
         )
         
         recommendations = {

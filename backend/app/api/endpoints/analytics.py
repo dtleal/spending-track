@@ -41,6 +41,7 @@ def get_spending_summary(
     start_date: Optional[date] = Query(None, description="Start date (defaults to 30 days ago)"),
     end_date: Optional[date] = Query(None, description="End date (defaults to today)"),
     all_time: bool = Query(False, description="Get all time data"),
+    cardholder: Optional[str] = Query(None, description="Filter by cardholder/person"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ) -> Any:
@@ -78,54 +79,58 @@ def get_spending_summary(
         end_datetime = datetime.combine(end_date, datetime.max.time())
     
     analytics = AnalyticsEngine(db)
-    summary = analytics.get_spending_summary(current_user.id, start_datetime, end_datetime)
-    
+    summary = analytics.get_spending_summary(current_user.id, start_datetime, end_datetime, cardholder=cardholder)
+
     return summary
 
 
 @router.get("/trends/monthly")
 def get_monthly_trends(
     months: int = Query(12, ge=1, le=24, description="Number of months to analyze"),
+    cardholder: Optional[str] = Query(None, description="Filter by cardholder/person"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ) -> Any:
     """Get monthly spending trends"""
     analytics = AnalyticsEngine(db)
-    trends = analytics.get_monthly_trends(current_user.id, months)
+    trends = analytics.get_monthly_trends(current_user.id, months, cardholder=cardholder)
     return trends
 
 
 @router.get("/trends/category")
 def get_category_trends(
     months: int = Query(6, ge=1, le=12, description="Number of months to analyze"),
+    cardholder: Optional[str] = Query(None, description="Filter by cardholder/person"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ) -> Any:
     """Get spending trends by category"""
     analytics = AnalyticsEngine(db)
-    trends = analytics.get_category_trends(current_user.id, months)
+    trends = analytics.get_category_trends(current_user.id, months, cardholder=cardholder)
     return trends
 
 
 @router.get("/unusual")
 def detect_unusual_spending(
+    cardholder: Optional[str] = Query(None, description="Filter by cardholder/person"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ) -> Any:
     """Detect unusual spending patterns"""
     analytics = AnalyticsEngine(db)
-    unusual = analytics.detect_unusual_spending(current_user.id)
+    unusual = analytics.detect_unusual_spending(current_user.id, cardholder=cardholder)
     return unusual
 
 
 @router.get("/budget/recommendations", response_model=BudgetRecommendationResponse)
 def get_budget_recommendations(
+    cardholder: Optional[str] = Query(None, description="Filter by cardholder/person"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ) -> Any:
     """Get AI-powered budget recommendations"""
     analytics = AnalyticsEngine(db)
-    recommendations = analytics.get_budget_recommendations(current_user.id)
+    recommendations = analytics.get_budget_recommendations(current_user.id, cardholder=cardholder)
     return recommendations
 
 
