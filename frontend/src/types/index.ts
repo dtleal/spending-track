@@ -7,6 +7,8 @@ export enum ExpenseCategory {
   UTILITIES = 'utilities',
   EDUCATION = 'education',
   FEES = 'fees',
+  MERCADO_LIVRE = 'mercado_livre',
+  AMAZON = 'amazon',
   OTHER = 'other',
 }
 

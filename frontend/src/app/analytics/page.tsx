@@ -20,12 +20,12 @@ const CATEGORY_LABELS: Record<string, string> = {
   food: 'Food & Dining', transport: 'Transportation', shopping: 'Shopping',
   health: 'Health & Medical', entertainment: 'Entertainment',
   utilities: 'Utilities & Bills', education: 'Education', fees: 'Card Fees',
-  other: 'Other',
+  mercado_livre: 'Mercado Livre', amazon: 'Amazon', other: 'Other',
 }
 const CATEGORY_COLORS: Record<string, string> = {
   food: '#f97316', transport: '#3b82f6', shopping: '#ec4899', health: '#ef4444',
   entertainment: '#a855f7', utilities: '#64748b', education: '#22c55e',
-  fees: '#e11d48', other: '#f59e0b',
+  fees: '#e11d48', mercado_livre: '#eab308', amazon: '#6366f1', other: '#f59e0b',
 }
 const monthKey = (iso: string) => iso.slice(0, 7)
 
@@ -193,11 +193,11 @@ export default function AnalyticsPage() {
                 <AlertTriangle className="h-5 w-5 text-rose-600 dark:text-rose-400 mt-0.5" />
                 <div className="text-sm">
                   <span className="font-semibold text-rose-700 dark:text-rose-300">
-                    {fc(insights.avoidable)} in interest & late penalties.
+                    {fc(insights.avoidable)} em juros e multa por atraso.
                   </span>{' '}
                   <span className="text-rose-700/80 dark:text-rose-300/80">
-                    Paying each statement in full and on time would avoid these charges
-                    (the late penalty is 2% of the whole balance).
+                    Pagar cada fatura integral e em dia evitaria essas cobranças
+                    (a multa por atraso é de 2% sobre o saldo total).
                   </span>
                 </div>
               </CardContent>

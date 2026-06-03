@@ -94,6 +94,8 @@ export default function ExpensesPage() {
     { value: 'utilities', label: 'Utilities & Bills' },
     { value: 'education', label: 'Education' },
     { value: 'fees', label: 'Card Fees' },
+    { value: 'mercado_livre', label: 'Mercado Livre' },
+    { value: 'amazon', label: 'Amazon' },
     { value: 'other', label: 'Other' },
   ]
 
@@ -107,6 +109,8 @@ export default function ExpensesPage() {
       utilities: 'bg-slate-200 text-slate-900 dark:bg-slate-500/30 dark:text-slate-100',
       education: 'bg-green-100 text-green-900 dark:bg-green-500/25 dark:text-green-200',
       fees: 'bg-rose-100 text-rose-900 dark:bg-rose-500/25 dark:text-rose-200',
+      mercado_livre: 'bg-yellow-100 text-yellow-900 dark:bg-yellow-500/25 dark:text-yellow-100',
+      amazon: 'bg-indigo-100 text-indigo-900 dark:bg-indigo-500/25 dark:text-indigo-200',
       other: 'bg-amber-100 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200',
     }
     return colors[category] || colors.other

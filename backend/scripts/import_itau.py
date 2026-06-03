@@ -131,6 +131,9 @@ def _classify_merchant(merchant: str) -> ExpenseCategory | None:
 _FORCE_MERCHANT = [
     (ExpenseCategory.HEALTH, ("TOTALPASS", "TOTAL PASS", "GYMPASS")),  # gym
     (ExpenseCategory.UTILITIES, ("APPLE.COM/BILL", "APPLE.COM BILL", "APPLECOMBILL")),
+    (ExpenseCategory.MERCADO_LIVRE, ("MERCADOLIVRE", "MERCADO LIVRE", "MP*MELIMAIS", "MELIMAIS")),
+    (ExpenseCategory.AMAZON, ("AMAZON", "AMAZONMKTPLC", "AMZN")),
+    (ExpenseCategory.FOOD, ("FABIOARAUJO", "FABIO ARAUJO")),
 ]
 
 
