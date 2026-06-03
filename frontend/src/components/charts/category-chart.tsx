@@ -52,8 +52,8 @@ export function CategoryChart({ data }: CategoryChartProps) {
             ))}
           </Pie>
           <Tooltip 
-            formatter={(value: number) => [formatCurrency(value, isPrivacyMode), 'Amount']}
-            labelFormatter={(label) => `Category: ${label}`}
+            formatter={(value: number, name) => [formatCurrency(value, isPrivacyMode), name]}
+            labelFormatter={() => ''}
             contentStyle={{
               backgroundColor: 'hsl(var(--background))',
               border: '1px solid hsl(var(--border))',

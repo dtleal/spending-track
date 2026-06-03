@@ -27,7 +27,7 @@ export function QuickStats({ summary }: QuickStatsProps) {
         <CardContent>
           <div className="text-2xl font-bold">{formatCurrency(totalSpent, isPrivacyMode)}</div>
           <p className="text-xs text-muted-foreground">
-            Last 30 days
+            All time
           </p>
         </CardContent>
       </Card>

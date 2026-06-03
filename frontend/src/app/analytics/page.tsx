@@ -172,7 +172,7 @@ export default function AnalyticsPage() {
                 />
                 <YAxis tickFormatter={(value) => formatAnalyticsCurrency(value)} tick={{ fill: 'hsl(var(--foreground))' }} />
                 <Tooltip 
-                  formatter={(value) => [formatAnalyticsCurrency(Number(value)), 'Amount']}
+                  formatter={(value, name) => [formatAnalyticsCurrency(Number(value)), name]}
                   labelFormatter={(label) => `Month: ${format(new Date(label + '-01'), 'MMM yyyy')}`}
                   contentStyle={{
                     backgroundColor: 'hsl(var(--background))',
@@ -188,10 +188,11 @@ export default function AnalyticsPage() {
                     color: 'hsl(var(--foreground))',
                   }}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="total_spent" 
-                  stroke="#4ECDC4" 
+                <Line
+                  type="monotone"
+                  dataKey="total_spent"
+                  name="Total"
+                  stroke="#4ECDC4"
                   strokeWidth={2}
                 />
               </LineChart>
@@ -230,7 +231,7 @@ export default function AnalyticsPage() {
                   }
                 </Pie>
                 <Tooltip 
-                  formatter={(value) => [formatAnalyticsCurrency(Number(value)), 'Amount']}
+                  formatter={(value, name) => [formatAnalyticsCurrency(Number(value)), name]}
                   labelFormatter={(label) => `Category: ${label}`}
                   contentStyle={{
                     backgroundColor: 'hsl(var(--background))',
@@ -286,7 +287,7 @@ export default function AnalyticsPage() {
                   />
                   <YAxis tickFormatter={(value) => formatAnalyticsCurrency(value)} tick={{ fill: 'hsl(var(--foreground))' }} />
                   <Tooltip 
-                    formatter={(value) => [formatAnalyticsCurrency(Number(value)), 'Amount']}
+                    formatter={(value, name) => [formatAnalyticsCurrency(Number(value)), name]}
                     labelFormatter={(label) => `Month: ${format(new Date(label + '-01'), 'MMM yyyy')}`}
                     contentStyle={{
                       backgroundColor: 'hsl(var(--background))',

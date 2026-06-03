@@ -102,8 +102,13 @@ export const expensesApi = {
 }
 
 export const analyticsApi = {
-  getSummary: async () => {
-    const { data } = await api.get('/analytics/summary')
+  // start/end are ISO date strings (YYYY-MM-DD). Omit both for all-time data.
+  getSummary: async (startDate?: string, endDate?: string) => {
+    const params: Record<string, string | boolean> = {}
+    if (startDate) params.start_date = startDate
+    if (endDate) params.end_date = endDate
+    if (!startDate && !endDate) params.all_time = true
+    const { data } = await api.get('/analytics/summary', { params })
     return data as SpendingSummary
   },
   getMonthlyTrends: async (months = 12) => {

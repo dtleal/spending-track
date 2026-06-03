@@ -40,8 +40,8 @@ export function SpendingChart({ data }: SpendingChartProps) {
             tick={{ fill: 'hsl(var(--foreground))' }}
           />
           <Tooltip 
-            formatter={(value: number) => [formatCurrency(value, isPrivacyMode), 'Amount']}
-            labelFormatter={(label) => `Month: ${label}`}
+            formatter={(value: number, name) => [formatCurrency(value, isPrivacyMode), name]}
+            labelFormatter={(label) => `${label}`}
             contentStyle={{
               backgroundColor: 'hsl(var(--background))',
               border: '1px solid hsl(var(--border))',
@@ -49,10 +49,11 @@ export function SpendingChart({ data }: SpendingChartProps) {
               color: 'hsl(var(--foreground))',
             }}
           />
-          <Line 
-            type="monotone" 
-            dataKey="total_spent" 
-            stroke="hsl(var(--primary))" 
+          <Line
+            type="monotone"
+            dataKey="total_spent"
+            name="Total"
+            stroke="hsl(var(--primary))"
             strokeWidth={2}
             dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
             activeDot={{ r: 6 }}
