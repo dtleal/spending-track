@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { expensesApi } from '@/lib/api'
+import { expensesApi, analyticsApi } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -17,19 +17,43 @@ import { formatCurrency } from '@/lib/utils'
 export default function ExpensesPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string>('all')
-  const [updatingExpenseId, setUpdatingExpenseId] = useState<number | null>(null)
+  const [selectedMonth, setSelectedMonth] = useState<string>('all')
   const { isPrivacyMode } = usePrivacyStore()
   const { toast } = useToast()
   const queryClient = useQueryClient()
 
+  // Available months for the period filter (most recent first).
+  const { data: monthlyTrends } = useQuery({
+    queryKey: ['expense-months'],
+    queryFn: () => analyticsApi.getMonthlyTrends(12),
+  })
+  const monthOptions = [...(monthlyTrends || [])]
+    .map((t: any) => ({ value: t.month, label: t.month_name }))
+    .reverse()
+
+  const monthRange = (ym: string) => {
+    if (ym === 'all') return {}
+    const [y, m] = ym.split('-').map(Number)
+    return {
+      start_date: `${ym}-01`,
+      end_date: new Date(y, m, 0).toISOString().split('T')[0], // last day of month
+    }
+  }
+
   const { data: expenses, isLoading } = useQuery({
-    queryKey: ['expenses', searchTerm, selectedCategory],
+    queryKey: ['expenses', searchTerm, selectedCategory, selectedMonth],
     queryFn: () => expensesApi.list({
       merchant: searchTerm || undefined,
       category: selectedCategory === 'all' ? undefined : selectedCategory,
-      limit: 100,
+      ...monthRange(selectedMonth),
+      limit: 500,
     }),
   })
+
+  const periodLabel =
+    selectedMonth === 'all'
+      ? 'All time'
+      : monthOptions.find((o) => o.value === selectedMonth)?.label || selectedMonth
 
   const deleteMutation = useMutation({
     mutationFn: (id: number) => expensesApi.delete(id),
@@ -79,16 +103,16 @@ export default function ExpensesPage() {
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
-      food: 'bg-orange-100 text-orange-800',
-      transport: 'bg-blue-100 text-blue-800',
-      shopping: 'bg-pink-100 text-pink-800',
-      health: 'bg-red-100 text-red-800',
-      entertainment: 'bg-purple-100 text-purple-800',
-      utilities: 'bg-gray-100 text-gray-800',
-      education: 'bg-green-100 text-green-800',
-      other: 'bg-yellow-100 text-yellow-800',
+      food: 'bg-orange-100 text-orange-900 dark:bg-orange-500/25 dark:text-orange-200',
+      transport: 'bg-blue-100 text-blue-900 dark:bg-blue-500/25 dark:text-blue-200',
+      shopping: 'bg-pink-100 text-pink-900 dark:bg-pink-500/25 dark:text-pink-200',
+      health: 'bg-red-100 text-red-900 dark:bg-red-500/25 dark:text-red-200',
+      entertainment: 'bg-purple-100 text-purple-900 dark:bg-purple-500/25 dark:text-purple-200',
+      utilities: 'bg-slate-200 text-slate-900 dark:bg-slate-500/30 dark:text-slate-100',
+      education: 'bg-green-100 text-green-900 dark:bg-green-500/25 dark:text-green-200',
+      other: 'bg-amber-100 text-amber-900 dark:bg-amber-500/25 dark:text-amber-200',
     }
-    return colors[category] || 'bg-gray-100 text-gray-800'
+    return colors[category] || colors.other
   }
 
   const getCategoryLabel = (value: string) => {
@@ -143,23 +167,23 @@ export default function ExpensesPage() {
   } : null
 
 
-  const isFiltered = searchTerm || selectedCategory !== 'all'
+  const isFiltered = searchTerm || selectedCategory !== 'all' || selectedMonth !== 'all'
 
   return (
     <div className="p-6">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Expenses</h1>
-        <p className="text-gray-600">View and manage your expenses</p>
+        <p className="text-muted-foreground">View and manage your expenses</p>
       </div>
 
       {/* Uncategorized Alert */}
       {!isLoading && uncategorizedExpenses.length > 0 && (
-        <Alert className="mb-6 border-orange-200 bg-orange-50">
-          <AlertCircle className="h-4 w-4 text-orange-600" />
-          <AlertTitle className="text-orange-800">
+        <Alert className="mb-6 border-orange-200 bg-orange-50 dark:border-orange-900/60 dark:bg-orange-950/40">
+          <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+          <AlertTitle className="text-orange-800 dark:text-orange-200">
             {uncategorizedExpenses.length} Uncategorized Expense{uncategorizedExpenses.length > 1 ? 's' : ''}
           </AlertTitle>
-          <AlertDescription className="text-orange-700">
+          <AlertDescription className="text-orange-700 dark:text-orange-300">
             <p className="mb-3">
               You have {uncategorizedExpenses.length} expense{uncategorizedExpenses.length > 1 ? 's' : ''} without proper categorization. 
               Categorizing your expenses helps you better understand your spending patterns.
@@ -218,11 +242,24 @@ export default function ExpensesPage() {
                 ))}
               </SelectContent>
             </Select>
+            <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select period" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All time</SelectItem>
+                {monthOptions.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           
           {/* Quick Search Buttons */}
           <div className="mt-4">
-            <p className="text-sm font-medium text-gray-700 mb-2">Quick Search:</p>
+            <p className="text-sm font-medium text-muted-foreground mb-2">Quick Search:</p>
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
@@ -278,8 +315,9 @@ export default function ExpensesPage() {
                 onClick={() => {
                   setSearchTerm('')
                   setSelectedCategory('all')
+                  setSelectedMonth('all')
                 }}
-                className="text-xs border-red-200 text-red-600 hover:bg-red-50"
+                className="text-xs border-red-200 text-red-600 hover:bg-red-50 dark:border-red-900 dark:hover:bg-red-950"
               >
                 ❌ Clear All
               </Button>
@@ -295,7 +333,7 @@ export default function ExpensesPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total Amount</p>
+                  <p className="text-sm font-medium text-muted-foreground">Total Amount</p>
                   <p className="text-2xl font-bold text-green-600">
                     {formatCurrency(filteredStats.totalAmount, isPrivacyMode)}
                   </p>
@@ -309,7 +347,7 @@ export default function ExpensesPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Transactions</p>
+                  <p className="text-sm font-medium text-muted-foreground">Transactions</p>
                   <p className="text-2xl font-bold text-blue-600">
                     {filteredStats.count}
                   </p>
@@ -323,7 +361,7 @@ export default function ExpensesPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Average</p>
+                  <p className="text-sm font-medium text-muted-foreground">Average</p>
                   <p className="text-2xl font-bold text-purple-600">
                     {formatCurrency(filteredStats.averageAmount, isPrivacyMode)}
                   </p>
@@ -337,8 +375,8 @@ export default function ExpensesPage() {
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Date Range</p>
-                  <p className="text-sm font-bold text-gray-800">
+                  <p className="text-sm font-medium text-muted-foreground">Date Range</p>
+                  <p className="text-sm font-bold text-foreground">
                     {filteredStats.dateRange ? (
                       <>
                         {format(filteredStats.dateRange.earliest, 'MMM dd')} - {format(filteredStats.dateRange.latest, 'MMM dd')}
@@ -346,7 +384,7 @@ export default function ExpensesPage() {
                     ) : '-'}
                   </p>
                 </div>
-                <Calendar className="h-8 w-8 text-gray-500" />
+                <Calendar className="h-8 w-8 text-muted-foreground" />
               </div>
             </CardContent>
           </Card>
@@ -371,7 +409,7 @@ export default function ExpensesPage() {
                   <div key={merchant} className="flex items-center justify-between p-3 border rounded-lg">
                     <div>
                       <p className="font-medium">{merchant}</p>
-                      <p className="text-sm text-gray-500">{data.count} transaction{data.count > 1 ? 's' : ''}</p>
+                      <p className="text-sm text-muted-foreground">{data.count} transaction{data.count > 1 ? 's' : ''}</p>
                     </div>
                     <p className="font-semibold text-green-600">
                       {formatCurrency(data.amount, isPrivacyMode)}
@@ -386,28 +424,34 @@ export default function ExpensesPage() {
       {/* Expenses List */}
       <Card>
         <CardHeader>
-          <CardTitle>All Expenses</CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle>All Expenses</CardTitle>
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+              <Calendar className="h-3 w-3" />
+              {periodLabel}
+            </span>
+          </div>
           <CardDescription>
-            {expenses?.length || 0} expenses found
+            {expenses?.length || 0} expenses found · {periodLabel}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-center py-8 text-gray-500">Loading expenses...</p>
+            <p className="text-center py-8 text-muted-foreground">Loading expenses...</p>
           ) : expenses && expenses.length > 0 ? (
             <div className="space-y-2">
               {expenses.map((expense: any) => (
                 <div
                   key={expense.id}
-                  className={`flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 ${
-                    (!expense.category || expense.category === 'other') ? 'border-orange-300 bg-orange-50/50' : ''
+                  className={`flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 ${
+                    (!expense.category || expense.category === 'other') ? 'border-orange-300 bg-orange-50/50 dark:border-orange-900/60 dark:bg-orange-950/30' : ''
                   }`}
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <div>
                         <p className="font-medium">{expense.merchant}</p>
-                        <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Calendar className="h-3 w-3" />
                           {format(new Date(expense.date), 'MMM dd, yyyy')}
                           {expense.description && (
@@ -481,7 +525,7 @@ export default function ExpensesPage() {
               ))}
             </div>
           ) : (
-            <p className="text-center py-8 text-gray-500">
+            <p className="text-center py-8 text-muted-foreground">
               No expenses found. Upload an invoice to get started!
             </p>
           )}

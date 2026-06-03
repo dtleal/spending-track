@@ -53,8 +53,13 @@ def get_spending_summary(
         ).order_by(Expense.date.asc()).first()
         
         if earliest_expense:
+            latest_expense = db.query(Expense).filter(
+                Expense.user_id == current_user.id
+            ).order_by(Expense.date.desc()).first()
             start_datetime = datetime.combine(earliest_expense.date, datetime.min.time())
-            end_datetime = datetime.now()
+            # Span up to the latest expense (not "now"), so statement months whose
+            # purchase days fall after today are still included in all-time totals.
+            end_datetime = datetime.combine(latest_expense.date, datetime.max.time())
         else:
             # No expenses, use default range
             end_date = datetime.now().date()

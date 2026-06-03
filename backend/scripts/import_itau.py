@@ -199,27 +199,27 @@ def parse_invoice(path: str):
 
 
 def _clamp_day(day: int, ref_year: int, ref_month: int) -> int:
-    """Clamp a day into the reference month, and not past today for the current month.
+    """Clamp a day into the valid range of the reference month.
 
-    Capping the current month at today keeps every expense within the analytics
-    window (the summary endpoint ranges up to "now"), so nothing is dropped as
-    "future" while the monthly totals stay exact.
+    The purchase day-of-month is preserved so transactions spread realistically
+    across their statement month (the all-time analytics window spans up to the
+    latest expense, so days later in the current month are not dropped).
     """
     last = monthrange(ref_year, ref_month)[1]
-    day = min(max(day, 1), last)
-    today = datetime.now()
-    if (ref_year, ref_month) == (today.year, today.month):
-        day = min(day, today.day)
-    return day
+    return min(max(day, 1), last)
 
 
 def _expense_date(dd_mm: str, ref_year: int, ref_month: int) -> datetime:
-    """Place a transaction within the invoice's reference month, keeping its day-of-month."""
+    """Place a transaction within the invoice's reference month, keeping its day-of-month.
+
+    Uses midday so the displayed calendar day stays correct across timezone
+    offsets (a midnight UTC value would render as the previous day in BRT).
+    """
     try:
         day = int(dd_mm.split("/")[0])
     except (ValueError, IndexError):
         day = 1
-    return datetime(ref_year, ref_month, _clamp_day(day, ref_year, ref_month))
+    return datetime(ref_year, ref_month, _clamp_day(day, ref_year, ref_month), 12, 0)
 
 
 def import_dir(directory: str, username: str, reset: bool) -> int:
@@ -290,7 +290,7 @@ def import_dir(directory: str, username: str, reset: bool) -> int:
                 db.add(Expense(
                     user_id=user.id,
                     invoice_id=invoice.id,
-                    date=datetime(ref_year, ref_month, _clamp_day(last, ref_year, ref_month)),
+                    date=datetime(ref_year, ref_month, _clamp_day(last, ref_year, ref_month), 12, 0),
                     merchant="Encargos, anuidade e lançamentos internacionais (Itaú)",
                     amount=reconciliation,
                     category=ExpenseCategory.OTHER,

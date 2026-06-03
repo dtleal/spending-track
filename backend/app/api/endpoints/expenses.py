@@ -2,7 +2,7 @@ from typing import Any, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from app.api.deps import get_current_active_user, get_db
 from app.models.user import User
 from app.models.expense import Expense, ExpenseCategory
@@ -62,7 +62,8 @@ def list_expenses(
     if start_date:
         query = query.filter(Expense.date >= start_date)
     if end_date:
-        query = query.filter(Expense.date <= end_date)
+        # Inclusive of the whole end day (expense timestamps carry a time component).
+        query = query.filter(Expense.date < end_date + timedelta(days=1))
     if category:
         query = query.filter(Expense.category == category)
     if merchant:
